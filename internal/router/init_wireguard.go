@@ -23,6 +23,16 @@ func (r *WireguardRouter) initWireguard() error {
 		return err
 	}
 	wanInfo := conf.WanInfo
+	if err = _initWanNet(wanInfo); err != nil {
+		return err
+	}
+	if err = _replaceDNS(conf.DnsServer); err != nil {
+		return err
+	}
+	return nil
+}
+
+func _initWanNet(wanInfo *pb.EthernetCard) error {
 	if wanInfo.DhcpClient != "" {
 		e, err := rexec.NewExecuter("dhclient", "dhclient", []string{wanInfo.Name})
 		if err != nil {
@@ -39,23 +49,29 @@ func (r *WireguardRouter) initWireguard() error {
 				"init ethernet [%s]failed: %s", wanInfo.Name, err.Error())
 		}
 	}
-	dnsArrays := make([]string, 0)
-	for _, ip := range conf.DnsServer {
-		dnsArrays = append(dnsArrays, "nameserver "+ip)
-	}
-	dnsStr := strings.Join(dnsArrays, "\n")
-	cmd, err := rexec.NewExecuter("dns", "bash", []string{
-		"-c", fmt.Sprintf("echo -e '%s' > /etc/resolv.conf", dnsStr),
-	})
-	if err != nil {
-		return fmt.Errorf("create replace dns script failed: %s", err.Error())
-	}
-	res := <-cmd.Start()
-	if res.Error != nil {
-		return fmt.Errorf("replace dns failed: %s", res.Error.Error())
+	return nil
+}
+
+func _replaceDNS(dns []string) error {
+	if len(dns) > 0 {
+		dnsArrays := make([]string, 0)
+		for _, ip := range dns {
+			dnsArrays = append(dnsArrays, "nameserver "+ip)
+			dnsStr := strings.Join(dnsArrays, "\n")
+			cmd, err := rexec.NewExecuter("dns", "bash", []string{
+				"-c", fmt.Sprintf("echo -e '%s' > /etc/resolv.conf", dnsStr),
+			})
+			if err != nil {
+				return fmt.Errorf("create replace dns script failed: %s", err.Error())
+			}
+			res := <-cmd.Start()
+			if res.Error != nil {
+				return fmt.Errorf("replace dns failed: %s", res.Error.Error())
+			}
+		}
 	}
 	logrus.WithField("prefix", "wireguard").Infof(
-		"replace dns servers [%s] success", conf.DnsServer)
+		"replace dns servers [%s] success", dns)
 	return nil
 }
 
