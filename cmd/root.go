@@ -16,6 +16,7 @@ var envs struct {
 	serverName         string
 	wireguardPath      string
 	wireguardToolsPath string
+	ipToolsPath        string
 	iptablesPath       string
 	ipsetPath          string
 }
@@ -50,6 +51,8 @@ func _flags() {
 		"wireguard executer path")
 	flag.StringVar(&envs.wireguardToolsPath, "wg-tools-path", "",
 		"wireguard tools executer path")
+	flag.StringVar(&envs.ipToolsPath, "iptools-path", "",
+		"ip tools executer path")
 	flag.StringVar(&envs.iptablesPath, "iptables-path", "",
 		"iptables executer path")
 	flag.StringVar(&envs.ipsetPath, "ipset-path", "",
@@ -64,12 +67,13 @@ func Execute() {
 		ManagerEndpoint:    envs.registryEndpoint,
 		WireguardPath:      envs.wireguardPath,
 		WireguardToolsPath: envs.wireguardToolsPath,
+		IPToolsPath:        envs.ipToolsPath,
 		IPTablesPath:       envs.iptablesPath,
 		IPSetPath:          envs.ipsetPath,
 	})
 	if err != nil {
 		logrus.WithField("prefix", "main").Fatalf(
-			"create wireguard router failed: %s", err.Error())
+			"create wireguard router failed: %v", err)
 	}
 	logrus.WithField("prefix", "main").Fatalf(
 		"run wireguard router failed: %s", <-r.Start())

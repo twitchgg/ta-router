@@ -5,16 +5,18 @@ import (
 	"os/exec"
 	"strconv"
 
+	"ntsc.ac.cn/ta-router/pkg/iptools"
 	"ntsc.ac.cn/ta-router/pkg/rexec"
 )
 
 type WireguardTools struct {
 	wgPath      string
 	wgQuickPath string
+	ipTools     *iptools.IPTools
 }
 
 // NewWireguardTools new wireguard tootls
-func NewWireguardTools(wgPath, wgQuickPath string) (*WireguardTools, error) {
+func NewWireguardTools(wgPath, wgQuickPath string, ipToolsPath string) (*WireguardTools, error) {
 	if wgPath == "" {
 		wgPath = "wg"
 	}
@@ -23,14 +25,19 @@ func NewWireguardTools(wgPath, wgQuickPath string) (*WireguardTools, error) {
 	}
 	var err error
 	if wgPath, err = exec.LookPath(wgPath); err != nil {
-		return nil, fmt.Errorf("loop path [%s] failed: %s", wgPath, err.Error())
+		return nil, fmt.Errorf("loop path [%s] failed: %v", wgPath, err)
 	}
 	if wgQuickPath, err = exec.LookPath(wgQuickPath); err != nil {
-		return nil, fmt.Errorf("loop path [%s] failed: %s", wgQuickPath, err.Error())
+		return nil, fmt.Errorf("loop path [%s] failed: %v", wgQuickPath, err)
+	}
+	iptools, err := iptools.NewIPTools(ipToolsPath)
+	if err != nil {
+		return nil, err
 	}
 	return &WireguardTools{
 		wgPath:      wgPath,
 		wgQuickPath: wgQuickPath,
+		ipTools:     iptools,
 	}, nil
 }
 
@@ -128,6 +135,37 @@ func (wt *WireguardTools) ReloadDev(dev string) error {
 	if err != nil {
 		return fmt.Errorf(
 			"reload dev [%s] failed: %s", dev, result)
+	}
+	return nil
+}
+
+// DelWireguardInterface delete wireguard interface
+func (wt *WireguardTools) DelWireguardInterface(name string) error {
+	return wt.ipTools.DeleteLink(name)
+}
+
+func (wt *WireguardTools) AddWireguardInterface(name string) error {
+	return wt.ipTools.AddLink(name, "wireguard")
+}
+
+func (wt *WireguardTools) UpDevice(name string) error {
+	args := make([]string, 0)
+	args = append(args, "link")
+	args = append(args, "set")
+	args = append(args, "mtu")
+	args = append(args, "1420")
+	args = append(args, "up")
+	args = append(args, "dev")
+	args = append(args, name)
+	exe, err := rexec.NewExecuter("ip",
+		wt.ipTools.IPToolsPath(), args)
+	if err != nil {
+		return fmt.Errorf(
+			"set mtu and up wireguard dev [%s] failed: %v", name, err)
+	}
+	if _, err = exe.Run(); err != nil {
+		return fmt.Errorf(
+			"set mtu and up wireguard dev [%s] failed: %v", name, err)
 	}
 	return nil
 }
